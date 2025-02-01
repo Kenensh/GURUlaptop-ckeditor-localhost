@@ -92,6 +92,11 @@ export default function BlogSearchPage() {
     }
   }
 
+  const stripHtml = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.body.textContent || ''
+  }
+
   return (
     <>
       <Head>
@@ -237,7 +242,7 @@ export default function BlogSearchPage() {
                           <div className="row">
                             <p className="BlogCardTitle">{blog.blog_title}</p>
                             <h7 className="card-text mb-md-4 BlogCardContent">
-                              {blog.blog_content}
+                              <div>{stripHtml(blog.blog_content)}</div>
                             </h7>
                           </div>
                           <div className="d-flex justify-content-between">

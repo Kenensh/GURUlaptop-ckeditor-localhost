@@ -34,6 +34,11 @@ export default function BloghomepageCardgroup() {
     fetchBlogs()
   }, []) // 只在組件掛載時執行一次
 
+  const stripHtml = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.body.textContent || ''
+  }
+
   return (
     <>
       <div className="container">
@@ -70,7 +75,9 @@ export default function BloghomepageCardgroup() {
                           {data.blog_title}
                         </h5>
                         <p className="ArticleSmallerCardContent mb-3 text-dark">
-                          {data.blog_content}
+                          <div className="card-text mb-md-4 BlogCardContent">
+                            {stripHtml(data.blog_content)}
+                          </div>
                         </p>
                       </div>
                       <div className="d-flex justify-content-between flex-column flex-xl-row">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDiamond } from '@fortawesome/free-solid-svg-icons'
 import { useRouter } from 'next/router'
@@ -10,17 +10,27 @@ import BlogDetailMainArea from '@/components/blog/bloghomepage/articlehomepage-m
 import NextBreadCrumb from '@/components/common/next-breadcrumb'
 import Swal from 'sweetalert2'
 import withReactContent from 'sweetalert2-react-content'
+import dynamic from 'next/dynamic'
+import 'react-quill/dist/quill.snow.css'
+
+const ReactQuill = dynamic(() => import('react-quill'), {
+  ssr: false,
+  loading: () => <div>載入編輯器中...</div>,
+})
+
+const isClient = typeof window !== 'undefined'
 const MySwal = withReactContent(Swal)
 import Head from 'next/head'
+import Myeditor from '@/components/blog/Myeditor'
 
 export default function Blogcreated(props) {
+  const fileInputRef = useRef(null)
   const router = useRouter() // 加入 router
 
   // -------------------使用者-------------------
   const { auth } = useAuth()
   const { isAuth, userData } = auth // 一起解構
   const user_id = userData.user_id
-  console.log(user_id)
 
   const brands = [
     ['ROG', 'DELL', 'Acer', 'Raser'],
@@ -54,6 +64,16 @@ export default function Blogcreated(props) {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    if (!blog_content.trim() && isClient) {
+      MySwal.fire({
+        icon: 'warning',
+        title: '請輸入內文',
+        showConfirmButton: false,
+        timer: 1500,
+      })
+      return
+    }
+
     const formData = new FormData()
     formData.append('user_id', user_id)
     formData.append('blog_type', blog_type)
@@ -81,17 +101,31 @@ export default function Blogcreated(props) {
       const result = await response.json()
 
       if (response.ok) {
-        MySwal.fire({
-          icon: 'success',
-          title: '部落格新增成功',
-          showConfirmButton: false,
-          timer: 1500,
-        })
+        if (isClient) {
+          MySwal.fire({
+            icon: 'success',
+            title: '部落格新增成功',
+            showConfirmButton: false,
+            timer: 1500,
+          })
+        }
         if (result.blog_id) {
-          // toast.success('部落格新增成功')
           router.push(`/blog`)
         }
       } else {
+        if (isClient) {
+          MySwal.fire({
+            icon: 'error',
+            title: '部落格新增失敗',
+            showConfirmButton: false,
+            timer: 1500,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('錯誤:', error)
+
+      if (isClient) {
         MySwal.fire({
           icon: 'error',
           title: '部落格新增失敗',
@@ -99,15 +133,6 @@ export default function Blogcreated(props) {
           timer: 1500,
         })
       }
-    } catch (error) {
-      console.error('錯誤:', error)
-
-      MySwal.fire({
-        icon: 'error',
-        title: '部落格新增失敗',
-        showConfirmButton: false,
-        timer: 1500,
-      })
     }
   }
 
@@ -145,7 +170,7 @@ export default function Blogcreated(props) {
 
         <div
           className="BlogImgUploadDiv d-flex align-items-center justify-content-center"
-          onClick={() => document.getElementById('imageInput').click()}
+          onClick={() => fileInputRef.current?.click()}
         >
           {blog_image ? (
             <img
@@ -161,6 +186,7 @@ export default function Blogcreated(props) {
             </>
           )}
           <input
+            ref={fileInputRef}
             type="file"
             onChange={(e) => setImage(e.target.files[0])}
             style={{ display: 'none' }}
@@ -193,7 +219,8 @@ export default function Blogcreated(props) {
 
           {/* 文章內容區塊 */}
 
-          <div className="container-lg container-fluid-md  d-flex flex-lg-row flex-column  align-items-start justify-content-start mb-5 mt-5">
+          {/* 文章內容區塊 */}
+          <div className="container-lg container-fluid-md d-flex flex-column align-items-start justify-content-start mb-5 mt-5">
             <div className="BlogEditSmallTitle text-nowrap col-2">
               <p>
                 <FontAwesomeIcon icon={faDiamond} className="TitleDiamond" />
@@ -202,13 +229,20 @@ export default function Blogcreated(props) {
                 內文
               </p>
             </div>
-            <div className="col-10">
-              <textarea
-                className="blog-form-control w-100"
+            <div className="col-10 w-100">
+              <ReactQuill
                 value={blog_content}
-                onChange={(e) => setContent(e.target.value)}
-                rows="20"
-                placeholder="請輸入內文"
+                onChange={setContent}
+                theme="snow"
+                modules={{
+                  toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'clean'],
+                    [{ size: ['small', false, 'large', 'huge'] }],
+                  ],
+                }}
+                placeholder="請輸入文章內容..."
               />
             </div>
           </div>

@@ -55,6 +55,37 @@ router.get('/', async (req, res) => {
   }
 })
 
+// 在現有的 multer 配置之後，添加新的上傳路由
+router.post(
+  '/upload-image', // 移除多餘的 /api 前綴
+  upload.single('upload'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          status: 'error',
+          message: '沒有接收到檔案',
+        })
+      }
+
+      const fileUrl = `/blog-images/${req.file.originalname}`
+      console.log('File uploaded successfully:', fileUrl)
+
+      res.json({
+        uploaded: 1,
+        fileName: req.file.originalname,
+        url: fileUrl,
+      })
+    } catch (error) {
+      console.error('Upload error:', error)
+      res.status(500).json({
+        status: 'error',
+        message: '檔案上傳失敗',
+      })
+    }
+  }
+)
+
 router.get('/blogcardgroup', async (req, res) => {
   const { page = 1, limit = 6 } = req.query
   const offset = (page - 1) * limit
@@ -79,52 +110,60 @@ router.get('/blogcardgroup', async (req, res) => {
   }
 })
 
+// 修改 blog-created 路由的 INSERT 語句
 router.post('/blog-created', upload.single('blog_image'), async (req, res) => {
   try {
-    const {
-      user_id,
-      blog_type,
-      blog_title,
-      blog_content,
-      blog_brand,
-      blog_brand_model,
-      blog_keyword,
-      blog_valid_value,
-      blog_created_date,
-    } = req.body
-
-    // 獲取上傳的圖片路徑
-    const blog_image = req.file ? `/blog-images/${req.file.originalname}` : null
-
-    // 創建要插入的資料物件
-    const blogData = {
-      user_id,
-      blog_type,
-      blog_title,
-      blog_content,
-      blog_brand,
-      blog_brand_model,
-      blog_keyword,
-      blog_valid_value,
-      blog_created_date,
-      blog_image,
+    // 基本驗證
+    if (!req.body.blog_title || !req.body.blog_content) {
+      return res.status(400).json({
+        status: 'error',
+        message: '標題和內容為必填',
+      })
     }
 
-    // 執行插入操作
-    const [result] = await db.query('INSERT INTO blogoverview SET ?', [
-      blogData,
-    ])
+    // 處理圖片路徑
+    const blog_image = req.file ? `/blog-images/${req.file.originalname}` : null
+
+    // MySQL 的插入查詢
+    const query = `
+      INSERT INTO blogoverview 
+      (user_id, blog_type, blog_title, blog_content, 
+       blog_brand, blog_brand_model, blog_keyword, 
+       blog_valid_value, blog_created_date, blog_image)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+    const values = [
+      req.body.user_id,
+      req.body.blog_type,
+      req.body.blog_title,
+      req.body.blog_content,
+      req.body.blog_brand || null,
+      req.body.blog_brand_model || null,
+      req.body.blog_keyword || null,
+      req.body.blog_valid_value || 1,
+      req.body.blog_created_date || new Date(),
+      blog_image,
+    ]
+
+    // 執行查詢
+    const [result] = await db.query(query, values)
 
     res.json({
-      success: true,
+      status: 'success',
       message: '新增成功',
-      blog_id: result.insertId, // 返回新插入的 ID
+      blog_id: result.insertId, // MySQL 使用 insertId 獲取新插入的 ID
+      blog_image: blog_image,
     })
   } catch (error) {
-    console.error('資料庫錯誤:', error)
+    console.error('Blog creation error:', error)
+    console.error('Full error details:', {
+      params: req.body,
+      imageFile: req.file,
+    })
     res.status(500).json({
-      success: false,
-      message: '新增失敗，請稍後再試',
+      status: 'error',
+      message: error.message || '操作失敗',
     })
   }
 })
@@ -251,7 +290,7 @@ router.put(
         originalImage,
       } = req.body
 
-      // 修改圖片處理邏輯
+      // 圖片處理邏輯
       let blog_image = null
       if (req.file) {
         // 有新上傳的圖片
@@ -261,33 +300,59 @@ router.put(
         blog_image = originalImage
       }
 
+      // MySQL UPDATE 查詢
       const sql = `
-      UPDATE blogoverview 
-      SET user_id=?, blog_type=?, blog_title=?, blog_content=?, 
-          blog_brand=?, blog_brand_model=?, blog_keyword=?, 
-          blog_image=?
-      WHERE blog_id=?
-    `
+        UPDATE blogoverview 
+        SET 
+          user_id = ?,
+          blog_type = ?,
+          blog_title = ?,
+          blog_content = ?,
+          blog_brand = ?,
+          blog_brand_model = ?,
+          blog_keyword = ?,
+          blog_image = ?,
+          blog_created_date = NOW()
+        WHERE blog_id = ?
+      `
 
-      await db.query(sql, [
+      const [result] = await db.query(sql, [
         user_id,
         blog_type,
         blog_title,
-        blog_content,
-        blog_brand,
-        blog_brand_model,
-        blog_keyword,
+        blog_content, // CKEditor 的內容直接儲存
+        blog_brand || null,
+        blog_brand_model || null,
+        blog_keyword || null,
         blog_image,
         req.params.blog_id,
       ])
 
+      // 檢查更新結果
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          status: 'error',
+          message: '找不到要更新的部落格',
+        })
+      }
+
       res.json({
-        success: true,
-        blog_image: blog_image, // 返回最終使用的圖片路徑
+        status: 'success',
+        message: '更新成功',
+        blog_image: blog_image,
+        blog_content: blog_content, // 回傳更新後的內容
       })
     } catch (error) {
-      console.error('更新錯誤:', error)
-      res.status(500).json({ error: '更新失敗' })
+      console.error('Blog update error:', error)
+      console.error('Query details:', {
+        message: error.message,
+        params: req.body,
+        imageFile: req.file,
+      })
+      res.status(500).json({
+        status: 'error',
+        message: '更新失敗',
+      })
     }
   }
 )

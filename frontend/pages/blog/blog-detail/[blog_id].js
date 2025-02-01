@@ -92,9 +92,10 @@ export default function BlogId() {
 
         <div className="d-flex flex-column gap-5">
           {/* <p className="fs-5 BlogDetailText fw-bold">部落格內文</p> */}
-          <p className="fs-5 BlogDetailText text-break">
-            {blogData.blog_content}
-          </p>
+          <p
+            className="fs-5 BlogDetailText text-break"
+            dangerouslySetInnerHTML={{ __html: blogData.blog_content }}
+          />
         </div>
         <div className="d-flex align-items-center justify-content-center">
           <img

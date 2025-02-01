@@ -71,7 +71,13 @@ export default function BlogUserDetail() {
           </Link>
         </div>
       </div>
-
+      <div className="d-flex align-items-center justify-content-center mb-5">
+        <img
+          className="w-50 h-100 ratio"
+          src={`http://localhost:3005${blogData.blog_image}`}
+          alt={blogData.blog_title}
+        />
+      </div>
       <section className="container BlogDetailSectionContentArea mt-5">
         <div className="d-flex flex-column">
           <div>
@@ -95,15 +101,12 @@ export default function BlogUserDetail() {
           <div className="mb-5 mt-5 d-flex flex-column gap-5 ">
             {/* <p className="fs-5 BlogDetailText fw-bold">部落格內文</p> */}
             <p className="fs-5 BlogDetailText text-break">
-              {blogData.blog_content}
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: blogData.blog_content,
+                }}
+              />
             </p>
-          </div>
-          <div className="d-flex align-items-center justify-content-center mb-5">
-            <img
-              className="w-50 h-50 ratio"
-              src={`http://localhost:3005${blogData.blog_image}`}
-              alt={blogData.blog_title}
-            />
           </div>
         </div>
 

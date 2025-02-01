@@ -51,6 +51,11 @@ export default function BlogUserOverview({ specificUserId = null }) {
     hasData = true
   }
 
+  const stripHtml = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.body.textContent || ''
+  }
+
   return !hasData ? (
     <div className="container text-center mt-5">
       <p className="fs-4">沒有部落格，新增一下！</p>
@@ -81,7 +86,9 @@ export default function BlogUserOverview({ specificUserId = null }) {
                 <div className="d-flex row">
                   <p className="BlogUserOverviewCardTitle">{blog.blog_title}</p>
                   <h7 className="card-text mb-4 BlogUserOverviewCardContent">
-                    {blog.blog_content}
+                    <div className="card-text mb-md-4 BlogCardContent">
+                      {stripHtml(blog.blog_content)}
+                    </div>
                   </h7>
                 </div>
                 <div
